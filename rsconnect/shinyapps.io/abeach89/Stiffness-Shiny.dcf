@@ -1,0 +1,12 @@
+name: Stiffness-Shiny
+title: Stiffness-Shiny
+username:
+account: abeach89
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1956946
+bundleId: 2888905
+url: https://abeach89.shinyapps.io/Stiffness-Shiny/
+when: 1584417594.36977
+asMultiple: FALSE
+asStatic: FALSE

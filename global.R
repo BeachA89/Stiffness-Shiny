@@ -1,0 +1,10 @@
+library(shiny)
+library(shinythemes)
+library(dplyr)
+library(quantmod)
+library(zoo)
+library(R.utils)
+library(svDialogs)
+library(DT)
+library(ggplot2)
+
