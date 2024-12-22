@@ -1,5 +1,5 @@
 #Currently server500Hz
-# changed freq to 0.002 from 0.002
+# changed freq to 0.002 from 0.001
 # changed flight threshold to 10N
 
 # Define server logic to read selected file ----
@@ -33,7 +33,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -51,7 +51,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -64,7 +64,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -178,7 +178,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -195,7 +195,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -209,28 +209,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -247,12 +247,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -334,7 +334,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -352,7 +352,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -365,7 +365,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -479,7 +479,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -496,7 +496,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -510,28 +510,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -548,12 +548,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -636,7 +636,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -654,7 +654,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -667,7 +667,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -781,7 +781,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -798,7 +798,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -812,28 +812,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -850,12 +850,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -938,7 +938,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -956,7 +956,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -969,7 +969,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -1083,7 +1083,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -1100,7 +1100,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -1114,28 +1114,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -1152,12 +1152,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -1240,7 +1240,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -1258,7 +1258,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -1271,7 +1271,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -1385,7 +1385,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -1402,7 +1402,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -1416,28 +1416,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -1454,12 +1454,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -1542,7 +1542,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -1560,7 +1560,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -1573,7 +1573,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -1687,7 +1687,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -1704,7 +1704,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -1718,28 +1718,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -1756,12 +1756,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -1844,7 +1844,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -1862,7 +1862,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -1875,7 +1875,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -1989,7 +1989,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -2006,7 +2006,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -2020,28 +2020,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -2058,12 +2058,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -2146,7 +2146,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -2164,7 +2164,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -2177,7 +2177,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -2291,7 +2291,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -2308,7 +2308,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -2322,28 +2322,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -2360,12 +2360,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -2448,7 +2448,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -2466,7 +2466,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -2479,7 +2479,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -2593,7 +2593,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -2610,7 +2610,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -2624,28 +2624,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -2662,12 +2662,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -2750,7 +2750,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -2769,7 +2769,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -2782,7 +2782,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -2896,7 +2896,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -2913,7 +2913,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -2927,28 +2927,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -2965,12 +2965,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -3053,7 +3053,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -3071,7 +3071,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -3084,7 +3084,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -3198,7 +3198,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -3215,7 +3215,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -3229,28 +3229,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -3267,12 +3267,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -3355,7 +3355,7 @@ server <- function(input, output) {
     
     
     # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
     # Define the first contact instance after the first flight
     # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
@@ -3373,7 +3373,7 @@ server <- function(input, output) {
     Flight <- numeric(12)   # Preallocate for efficiency
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
     for (r in 1:12) {
       t <- r + 1
@@ -3386,7 +3386,7 @@ server <- function(input, output) {
       )[1]
       
       # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -3500,7 +3500,7 @@ server <- function(input, output) {
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
       #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -3517,7 +3517,7 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
       #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -3531,28 +3531,28 @@ server <- function(input, output) {
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -3569,12 +3569,12 @@ server <- function(input, output) {
       
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
