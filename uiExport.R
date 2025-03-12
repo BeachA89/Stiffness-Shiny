@@ -1,5 +1,3 @@
-
-
 ui <- fluidPage(
   
   theme = shinytheme('united'),
@@ -68,85 +66,81 @@ ui <- fluidPage(
                 accept = c("text/csv",
                            "text/comma-separated-values,text/plain",
                            ".csv")),
-      actionButton("goButton", "Go!")
+      actionButton("goButton", "Go!"),
+      
+      # New download button
+      downloadButton("downloadData", "Export to Excel")
     ),
+    
     # Main panel for displaying outputs ----
     mainPanel(
       tabsetPanel(type = "tabs",
                   
                   tabPanel("Left1",
                            plotlyOutput('projectplotLeft1'),
-                           tableOutput('resultstableLeft1'),
+                           tableOutput('resultstableLeft1')
                   ),
                   
                   tabPanel("Left2",
                            plotlyOutput('projectplotLeft2'),
-                           tableOutput('resultstableLeft2'),
+                           tableOutput('resultstableLeft2')
                   ),
                   
                   tabPanel("Left3",
                            plotlyOutput('projectplotLeft3'),
-                           tableOutput('resultstableLeft3'),
+                           tableOutput('resultstableLeft3')
                   ),
                   
                   tabPanel("Left4",
                            plotlyOutput('projectplotLeft4'),
-                           tableOutput('resultstableLeft4'),
+                           tableOutput('resultstableLeft4')
                   ),
                   
                   tabPanel("Left5",
                            plotlyOutput('projectplotLeft5'),
-                           tableOutput('resultstableLeft5'),
+                           tableOutput('resultstableLeft5')
                   ),
                   
                   tabPanel("Left6",
                            plotlyOutput('projectplotLeft6'),
-                           tableOutput('resultstableLeft6'),
+                           tableOutput('resultstableLeft6')
                   ),
                   
                   tabPanel("Right1",
                            plotlyOutput('projectplotRight1'),
-                           tableOutput('resultstableRight1'),
+                           tableOutput('resultstableRight1')
                   ),
                   
                   tabPanel("Right2",
                            plotlyOutput('projectplotRight2'),
-                           tableOutput('resultstableRight2'),
+                           tableOutput('resultstableRight2')
                   ),
                   
                   tabPanel("Right3",
                            plotlyOutput('projectplotRight3'),
-                           tableOutput('resultstableRight3'),
+                           tableOutput('resultstableRight3')
                   ),
                   
                   tabPanel("Right4",
                            plotlyOutput('projectplotRight4'),
-                           tableOutput('resultstableRight4'),
+                           tableOutput('resultstableRight4')
                   ),
+                  
                   tabPanel("Right5",
                            plotlyOutput('projectplotRight5'),
-                           tableOutput('resultstableRight5'),
+                           tableOutput('resultstableRight5')
                   ),
+                  
                   tabPanel("Right6",
                            plotlyOutput('projectplotRight6'),
-                           tableOutput('resultstableRight6'),
+                           tableOutput('resultstableRight6')
                   ),
-                  tabPanel("Summary", textOutput("Summaryhead"),
+                  
+                  tabPanel("Summary", 
+                           textOutput("Summaryhead"),
                            tableOutput('resultstableSummary')
                   )
       )
-      
-      
-      
-      # Output: Data file ----
-      
     )
   )
 )
-
-
-
-
-
-# Create Shiny app ----
-# shinyApp(ui, server)

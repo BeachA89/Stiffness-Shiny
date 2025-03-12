@@ -1,4 +1,6 @@
 #Currently server500Hz
+
+
 # changed freq to 0.002 from 0.002
 # changed flight threshold to 10N
 
@@ -3643,4 +3645,5 @@ server <- function(input, output) {
     
   })
   outputOptions(output, "resultstableSummary", suspendWhenHidden = TRUE)
+  
 }  
