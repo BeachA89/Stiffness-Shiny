@@ -1,3 +1,6 @@
+#Currently server500Hz
+
+
 # changed freq to 0.001 from 0.001
 # changed flight threshold to 10N
 
@@ -7,136 +10,163 @@ server <- function(input, output) {
   output$Summaryhead <- renderText({
     "Averages"
   })
-  output$resultstableLeft1.7 <- renderTable({
+  # everything wrapped into this output for Left 1.7Hz trial, each output is duplicated for each file, gobutton will process all at once
+  output$resultstableLeft1 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$Left1.7$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Left1$datapath, stringsAsFactors = F))
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    
+    ## Filter Design: 4th-order low-pass Butterworth filter with 20 Hz cutoff frequency
+    ## Assuming your sampling rate is 500 Hz
+    #sampling_rate <- 500
+    #cutoff_frequency <- 15
+    #nyquist_frequency <- sampling_rate / 2
+    #butter_filter <- butter(4, cutoff_frequency / nyquist_frequency, type = "low")
+    ## 
+    ## # Apply the filter
+    #Fz2$Fz2 <- filtfilt(butter_filter, Fz2$Fz2)
+    
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:10){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotLeft1.7 <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotLeft1 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:9){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:9){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:9){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -170,226 +200,488 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
       
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("FlightTimeHop", r, sep = ""), (length(HopDisp) - (length(HopDisp) - ContactHop))*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    # hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    # EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    # ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    # EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    # PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    # JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
-    # 
-    # avgEccCOMDisp = round(mean(EccCOMDisp[4:15]),digits=2)
-    # avgContactTime = round(mean(ContactTime[4:15]),digits=2)
-    # avgEccStiffness = round(mean(EccStiffness[4:15]),digits=2)
-    # avgPeakForcePC = round(mean(PeakForcePC[4:15]),digits=2)
-    # avgJumpFreq = round(mean(JumpFreq[4:15]),digits=2)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Left1Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
     
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2))
-    FlightTime <- rbind(round(FlightTimeHop1,digits=2), round(FlightTimeHop2,digits=2), round(FlightTimeHop3,digits=2), round(FlightTimeHop4,digits=2), round(FlightTimeHop5,digits=2), round(FlightTimeHop6,digits=2), round(FlightTimeHop7,digits=2), round(FlightTimeHop8,digits=2), round(FlightTimeHop9,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2))
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp[4:9]),digits=2)
-    avgContactTime = round(mean(ContactTime[4:9]),digits=2)
-    avgFlightTime = round(mean(FlightTime[4:9]),digits=2)
-    avgEccStiffness = round(mean(EccStiffness[4:9]),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC[4:9]),digits=2)
-    avgJumpFreq = round(mean(JumpFreq[4:9]),digits=2)
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
     
-    values$Left1.7Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
     
+    #define output file for Shiny
+    OutputdfLeft1 <-  as.data.frame(Output)
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    FlightTime2 <-  rbind(FlightTime, avgFlightTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
+    ({OutputdfLeft1})
     
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfLeft1.7 <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfLeft1.7})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableLeft1.7", suspendWhenHidden = FALSE)
+  outputOptions(output, "resultstableLeft1", suspendWhenHidden = FALSE)
   
+  output$resultstableLeft2 <- renderTable({
+    input$goButton
+    
+    data1 <- isolate(
+      read.csv(input$Left2$datapath, stringsAsFactors = F))
+    
+    #remove NAs
+    newdata <-  na.omit(data1)
+    
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
+    
+    
+    
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
+    BW = (input$Mass)*9.8
+    
+    
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
+    }
+    
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotLeft2 <- renderPlotly({
+      df = Fz2$Fz2
+      ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
+        geom_line() +
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
+    })
+    
+    
+    # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
+    
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
+    FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
+    FullHops <- list()
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
+    }
+    
+    #Split the data into Hops from flight to flight
+    Hops <- list()
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
+    }
+    
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
+    
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
+      
+      #Hop1
+      
+      #Calculate Acceleration using F=m*a
+      
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
+      HopAcc <- (Hop-BW)/input$Mass
+      
+      
+      #Create a rolling average of Acc, 2 frame window (why?)
+      HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
+      HopAccavg2 = insert(HopAccavg, 1, 0)
+      
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
+      HopVelInit = 1.3
+      
+      #Relabel HopAccarea as HopVela  add HopVelInit
+      HopVela = HopAccarea
+      HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
+      HopVel = cumsum(HopVela)
+      
+      #Create a rolling average of Vel, 2 frame window (why?)
+      HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
+      HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
+      
+      #Caluclate Displacement as the cumsum of Velocity Area
+      HopDisp = cumsum(HopVelarea)
+      
+      #Define length of the Displacement data
+      l = length(HopDisp)
+      
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
+      if (HopDisp[l]>0){
+        while (HopDisp[l] > 0.0001) {
+          HopAccavg = rollapply(HopAcc, 2, mean)
+          HopAccavg2 = insert(HopAccavg, 1, 0)
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
+          HopVela = HopAccarea
+          HopVela[1] = HopVelInit+HopAccarea[1]
+          HopVel = cumsum(HopVela)
+          HopVelavg = rollapply(HopVel, 2, mean)
+          HopVelavg2 = insert(HopVelavg, 1, 0)
+          HopVelarea = HopVelavg2*0.001
+          HopDisp = cumsum(HopVelarea)}
+      }else (HopDisp[l]<0) 
+      {
+        while (HopDisp[l] < 0.0001) {
+          HopAccavg = rollapply(HopAcc, 2, mean)
+          HopAccavg2 = insert(HopAccavg, 1, 0)
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
+          HopVela = HopAccarea
+          HopVela[1] = HopVelInit+HopAccarea[1]
+          HopVel = cumsum(HopVela)
+          HopVelavg = rollapply(HopVel, 2, mean)
+          HopVelavg2 = insert(HopVelavg, 1, 0)
+          HopVelarea = HopVelavg2*0.001
+          HopDisp = cumsum(HopVelarea)
+        }
+      }
+      
+      
+      #Calculate output variables
+      
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
+      
+      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
+      
+    }
+    
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
+    
+    
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
+    
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
+    
+    #Create reactive variable that stays alive for combined final summary table
+    values$Left2Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfLeft2 <-  as.data.frame(Output)
+    
+    ({OutputdfLeft2})
+    
+    
+  })
+  outputOptions(output, "resultstableLeft2", suspendWhenHidden = FALSE)
   
-  output$resultstableLeft2.0 <- renderTable({
+  output$resultstableLeft3 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$Left2.0$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Left3$datapath, stringsAsFactors = F))
+    
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    # Create time vector for 500Hz data
+    time_500Hz <- seq(0, (length(Fz2) - 1) / 500, by = 1 / 500)
+    
+    # Generate time vector for 1000Hz data
+    time_1000Hz <- seq(0, max(time_500Hz), by = 1 / 1000)
+    
+    # Interpolate Fz2 to 1000Hz
+    Fz2 <- spline(time_500Hz, Fz2, xout = time_1000Hz)$y
+    
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:16){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotLeft2.0 <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotLeft3 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
-    outputOptions(output, "projectplotLeft2.0", suspendWhenHidden = FALSE)
+    
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:15){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:15){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:15){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -423,204 +715,227 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
-      
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp),digits=2)
-    avgContactTime = round(mean(ContactTime),digits=2)
-    avgEccStiffness = round(mean(EccStiffness),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC),digits=2)
-    avgJumpFreq = round(mean(JumpFreq),digits=2)
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    values$Left2.0Averages <- cbind(avgEccCOMDisp, avgContactTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Left3Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfLeft3 <-  as.data.frame(Output)
+    
+    ({OutputdfLeft3})
     
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
-    
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfLeft2.0 <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfLeft2.0})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableLeft2.0", suspendWhenHidden = FALSE)
-  output$resultstableLeft2.3 <- renderTable({
+  outputOptions(output, "resultstableLeft3", suspendWhenHidden = FALSE)
+  
+  output$resultstableLeft4 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$Left2.3$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Left4$datapath, stringsAsFactors = F))
+    
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    
+    
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:16){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotLeft2.3 <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotLeft4 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
-    outputOptions(output, "projectplotLeft2.3", suspendWhenHidden = FALSE)    
+    
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:15){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:15){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:15){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -654,205 +969,225 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
-      
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp),digits=2)
-    avgContactTime = round(mean(ContactTime),digits=2)
-    avgEccStiffness = round(mean(EccStiffness),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC),digits=2)
-    avgJumpFreq = round(mean(JumpFreq),digits=2)
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    values$Left2.3Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Left4Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfLeft4 <-  as.data.frame(Output)
+    
+    ({OutputdfLeft4})
     
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
-    
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfLeft2.3 <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfLeft2.3})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableLeft2.3", suspendWhenHidden = FALSE)
-  output$resultstableLeft2.6 <- renderTable({
+  outputOptions(output, "resultstableLeft4", suspendWhenHidden = FALSE)
+  
+  output$resultstableLeft5 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$Left2.6$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Left5$datapath, stringsAsFactors = F))
+    
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:16){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotLeft2.6 <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotLeft5 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
-    outputOptions(output, "projectplotLeft2.6", suspendWhenHidden = FALSE)    
     
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:15){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:15){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:15){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -886,205 +1221,225 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
-      
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp),digits=2)
-    avgContactTime = round(mean(ContactTime),digits=2)
-    avgEccStiffness = round(mean(EccStiffness),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC),digits=2)
-    avgJumpFreq = round(mean(JumpFreq),digits=2)
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    values$Left2.6Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Left5Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfLeft5 <-  as.data.frame(Output)
+    
+    ({OutputdfLeft5})
     
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
-    
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfLeft2.6 <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfLeft2.6})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableLeft2.6", suspendWhenHidden = FALSE)
-  output$resultstableLeftSS <- renderTable({
+  outputOptions(output, "resultstableLeft5", suspendWhenHidden = FALSE)
+  
+  output$resultstableLeft6 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$LeftSS$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Left6$datapath, stringsAsFactors = F))
+    
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:16){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotLeftSS <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotLeft6 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
-    outputOptions(output, "projectplotLeftSS", suspendWhenHidden = FALSE)    
     
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:15){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:15){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:15){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -1118,205 +1473,225 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
-      
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp),digits=2)
-    avgContactTime = round(mean(ContactTime),digits=2)
-    avgEccStiffness = round(mean(EccStiffness),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC),digits=2)
-    avgJumpFreq = round(mean(JumpFreq),digits=2)
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    values$LeftSSAverages <- cbind(avgEccCOMDisp, avgContactTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Left6Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfLeft6 <-  as.data.frame(Output)
+    
+    ({OutputdfLeft6})
     
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
-    
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfLeftSS <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfLeftSS})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableLeftSS", suspendWhenHidden = FALSE)
-  output$resultstableRight1.7 <- renderTable({
+  outputOptions(output, "resultstableLeft6", suspendWhenHidden = FALSE)
+  
+  output$resultstableRight1 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$Right1.7$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Right1$datapath, stringsAsFactors = F))
+    
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:16){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotRight1.7 <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotRight1 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
-    outputOptions(output, "projectplotRight1.7", suspendWhenHidden = FALSE)    
     
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:15){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:15){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:15){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -1350,205 +1725,225 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
-      
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp),digits=2)
-    avgContactTime = round(mean(ContactTime),digits=2)
-    avgEccStiffness = round(mean(EccStiffness),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC),digits=2)
-    avgJumpFreq = round(mean(JumpFreq),digits=2)
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    values$Right1.7Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Right1Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfRight1 <-  as.data.frame(Output)
+    
+    ({OutputdfRight1})
     
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
-    
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfRight1.7 <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfRight1.7})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableRight1.7", suspendWhenHidden = FALSE)
-  output$resultstableRight2.0 <- renderTable({
+  outputOptions(output, "resultstableRight1", suspendWhenHidden = FALSE)
+  
+  output$resultstableRight2 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$Right2.0$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Right2$datapath, stringsAsFactors = F))
+    
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:16){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotRight2.0 <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotRight2 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
-    outputOptions(output, "projectplotRight2.0", suspendWhenHidden = FALSE)    
     
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:15){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:15){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:15){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -1582,205 +1977,225 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
-      
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp),digits=2)
-    avgContactTime = round(mean(ContactTime),digits=2)
-    avgEccStiffness = round(mean(EccStiffness),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC),digits=2)
-    avgJumpFreq = round(mean(JumpFreq),digits=2)
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    values$Right2.0Averages <- cbind(avgEccCOMDisp, avgContactTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Right2Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfRight2 <-  as.data.frame(Output)
+    
+    ({OutputdfRight2})
     
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
-    
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfRight2.0 <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfRight2.0})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableRight2.0", suspendWhenHidden = FALSE)
-  output$resultstableRight2.3 <- renderTable({
+  outputOptions(output, "resultstableRight2", suspendWhenHidden = FALSE)
+  
+  output$resultstableRight3 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$Right2.3$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Right3$datapath, stringsAsFactors = F))
+    
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:16){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotRight2.3 <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotRight3 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
-    outputOptions(output, "projectplotRight2.3", suspendWhenHidden = FALSE)    
     
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:15){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:15){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:15){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -1814,205 +2229,225 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
-      
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp),digits=2)
-    avgContactTime = round(mean(ContactTime),digits=2)
-    avgEccStiffness = round(mean(EccStiffness),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC),digits=2)
-    avgJumpFreq = round(mean(JumpFreq),digits=2)
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    values$Right2.3Averages <- cbind(avgEccCOMDisp, avgContactTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Right3Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfRight3 <-  as.data.frame(Output)
+    
+    ({OutputdfRight3})
     
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
-    
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfRight2.3 <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfRight2.3})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableRight2.3", suspendWhenHidden = FALSE)
-  output$resultstableRight2.6 <- renderTable({
+  outputOptions(output, "resultstableRight3", suspendWhenHidden = FALSE)
+  
+  output$resultstableRight4 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$Right2.6$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Right4$datapath, stringsAsFactors = F))
+    
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:16){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotRight2.6 <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotRight4 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
-    outputOptions(output, "projectplotRight2.6", suspendWhenHidden = FALSE)    
     
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:15){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:15){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:15){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -2046,205 +2481,225 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
-      
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp),digits=2)
-    avgContactTime = round(mean(ContactTime),digits=2)
-    avgEccStiffness = round(mean(EccStiffness),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC),digits=2)
-    avgJumpFreq = round(mean(JumpFreq),digits=2)
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    values$Right2.6Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Right4Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfRight4 <-  as.data.frame(Output)
+    
+    ({OutputdfRight4})
     
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
-    
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfRight2.6 <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfRight2.6})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableRight2.6", suspendWhenHidden = FALSE)
-  output$resultstableRightSS <- renderTable({
+  outputOptions(output, "resultstableRight4", suspendWhenHidden = FALSE)
+  
+  output$resultstableRight5 <- renderTable({
     input$goButton
     
     data1 <- isolate(
-      read.csv(input$RightSS$datapath, stringsAsFactors = F, skip = 17))
+      read.csv(input$Right5$datapath, stringsAsFactors = F))
+    
+    #remove NAs
     newdata <-  na.omit(data1)
     
-    Fz2 <-  as.numeric(newdata[,4])
-    Fz2 <-  as.data.frame(Fz2)
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
     
-    #req(input$Mass)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
     BW = (input$Mass)*9.8
-    Flight <- which(Fz2 <15)[1]
-    Contact <- Flight[1] - 1 +5 + which(Fz2$Fz2[Flight[1]+5:length(Fz2$Fz2)] >15)[1]
-    zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    Fz2$Fz2 = Fz2$Fz2 - zerooffset
     
-    Flight[1] <- which(Fz2$Fz2 <15) [1]
     
-    for (r in 1:16){
-      t = r+1
-      Contact[r] <- Flight[r] - 1 +5 + which(Fz2$Fz2[Flight[r]+5:length(Fz2$Fz2)] >15)
-      Flight[t] <- Contact[r] - 1 +5 + which(Fz2$Fz2[Contact[r]+5:length(Fz2$Fz2)] <15)
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
-    output$projectplotRightSS <- renderPlot({
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotRight5 <- renderPlotly({
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") +
-        
-        geom_vline(xintercept=Flight[14], col="green") +
-        geom_vline(xintercept=Contact[14], col="red") +
-        
-        geom_vline(xintercept=Flight[15], col="green") +
-        geom_vline(xintercept=Contact[15], col="red") +
-        
-        geom_vline(xintercept=Flight[16], col="green") +
-        geom_vline(xintercept=Contact[16], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
-    outputOptions(output, "projectplotRightSS", suspendWhenHidden = FALSE)    
     
     
     # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
     
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
     FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
     FullHops <- list()
-    for(r in 1:15){
-      t <- r+1
-      FullHops[[r]] <- Fz2$Fz2[Contact[r]:Contact[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
     }
     
+    #Split the data into Hops from flight to flight
     Hops <- list()
-    for(r in 1:15){
-      t <- r+1
-      Hops[[r]] <- Fz2$Fz2[Flight[r]:Flight[t]]
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
     }
     
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
     
-    for (r in 1:15){
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
       
       #Hop1
       
-      #Calculate Acceleration
+      #Calculate Acceleration using F=m*a
       
-      Hop <-  Hops[[r]]
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
       HopAcc <- (Hop-BW)/input$Mass
       
       
-      
-      
+      #Create a rolling average of Acc, 2 frame window (why?)
       HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Acceleration Area
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
       
-      #Velocity
+      #Relabel HopAccarea as HopVela  add HopVelInit
       HopVela = HopAccarea
       HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
       HopVel = cumsum(HopVela)
       
-      #Velocity Area
+      #Create a rolling average of Vel, 2 frame window (why?)
       HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
       HopVelarea = HopVelavg2*0.001
       
-      #Displacement
+      #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
       
+      #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacment close to zero
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
@@ -2278,83 +2733,341 @@ server <- function(input, output) {
       
       #Calculate output variables
       
-      assign(paste0("PeakHop", r, sep = ""), max(Hop))
-      assign(paste0("PeakHopPC", r, sep = ""), max(Hop)/BW)
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
       
       
-      
-      
-      ContactHop <- 5 + which(Hop[5:length(Hop)] >15)[1]
-      
-      assign(paste0("ContactTimeHop", r, sep = ""), (length(HopDisp) - ContactHop)*0.001)
-      
-      assign(paste0("MinHopDisp", r, sep = ""), min(HopDisp))
-      
-      assign(paste0("EccHopDisp", r, sep = ""), (HopDisp[ContactHop] - min(HopDisp)))
-      
-      assign(paste0("EccStiffHop", r, sep = ""), ((max(Hop) - BW)/(HopDisp[ContactHop] - min(HopDisp))/input$Mass))
-      
-      
-      assign(paste0("JumpFreqHop", r, sep = ""), 1/(length(FullHops[[r]])*0.001))
-      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
     
     
-    #########################
-    hopnumber <- c("Hop1","Hop2","Hop3","Hop4","Hop5","Hop6","Hop7","Hop8","Hop9","Hop10","Hop11","Hop12","Hop13","Hop14","Hop15", "Average")
-    EccCOMDisp <- rbind(round(EccHopDisp1,digits=2), round(EccHopDisp2,digits=2), round(EccHopDisp3,digits=2), round(EccHopDisp4,digits=2), round(EccHopDisp5,digits=2), round(EccHopDisp6,digits=2), round(EccHopDisp7,digits=2), round(EccHopDisp8,digits=2), round(EccHopDisp9,digits=2), round(EccHopDisp10,digits=2), round(EccHopDisp11,digits=2), round(EccHopDisp12,digits=2), round(EccHopDisp13,digits=2), round(EccHopDisp14,digits=2), round(EccHopDisp15,digits=2))
-    ContactTime <- rbind(round(ContactTimeHop1,digits=2), round(ContactTimeHop2,digits=2), round(ContactTimeHop3,digits=2), round(ContactTimeHop4,digits=2), round(ContactTimeHop5,digits=2), round(ContactTimeHop6,digits=2), round(ContactTimeHop7,digits=2), round(ContactTimeHop8,digits=2), round(ContactTimeHop9,digits=2), round(ContactTimeHop10,digits=2), round(ContactTimeHop11,digits=2), round(ContactTimeHop12,digits=2), round(ContactTimeHop13,digits=2), round(ContactTimeHop14,digits=2), round(ContactTimeHop15,digits=2))
-    EccStiffness <- rbind(round(EccStiffHop1,digits=2), round(EccStiffHop2,digits=2), round(EccStiffHop3,digits=2), round(EccStiffHop4,digits=2), round(EccStiffHop5,digits=2), round(EccStiffHop6,digits=2), round(EccStiffHop7,digits=2), round(EccStiffHop8,digits=2), round(EccStiffHop9,digits=2), round(EccStiffHop10,digits=2), round(EccStiffHop11,digits=2), round(EccStiffHop12,digits=2), round(EccStiffHop13,digits=2), round(EccStiffHop14,digits=2), round(EccStiffHop15,digits=2))
-    PeakForcePC <- rbind(round(PeakHopPC1,digits=2), round(PeakHopPC2,digits=2), round(PeakHopPC3,digits=2), round(PeakHopPC4,digits=2), round(PeakHopPC5,digits=2), round(PeakHopPC6,digits=2), round(PeakHopPC7,digits=2), round(PeakHopPC8,digits=2), round(PeakHopPC9,digits=2), round(PeakHopPC10,digits=2), round(PeakHopPC11,digits=2), round(PeakHopPC12,digits=2), round(PeakHopPC13,digits=2), round(PeakHopPC14,digits=2), round(PeakHopPC15,digits=2))
-    JumpFreq <- rbind(round(JumpFreqHop1,digits=2), round(JumpFreqHop2,digits=2), round(JumpFreqHop3,digits=2), round(JumpFreqHop4,digits=2), round(JumpFreqHop5,digits=2), round(JumpFreqHop6,digits=2), round(JumpFreqHop7,digits=2), round(JumpFreqHop8,digits=2), round(JumpFreqHop9,digits=2), round(JumpFreqHop10,digits=2), round(JumpFreqHop11,digits=2), round(JumpFreqHop12,digits=2), round(JumpFreqHop13,digits=2), round(JumpFreqHop14,digits=2), round(JumpFreqHop15,digits=2))
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
     
-    avgEccCOMDisp = round(mean(EccCOMDisp),digits=2)
-    avgContactTime = round(mean(ContactTime),digits=2)
-    avgEccStiffness = round(mean(EccStiffness),digits=2)
-    avgPeakForcePC = round(mean(PeakForcePC),digits=2)
-    avgJumpFreq = round(mean(JumpFreq),digits=2)
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
     
-    values$RightSSAverages <-  cbind(avgEccCOMDisp, avgContactTime, avgEccStiffness, avgPeakForcePC,avgJumpFreq)
+    #Create reactive variable that stays alive for combined final summary table
+    values$Right5Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfRight5 <-  as.data.frame(Output)
+    
+    ({OutputdfRight5})
     
     
-    EccCOMDisp2 <-  rbind(EccCOMDisp, avgEccCOMDisp)
-    ContactTime2 <-  rbind(ContactTime, avgContactTime)
-    EccStiffness2 <-  rbind(EccStiffness, avgEccStiffness)
-    PeakForcePC2 <-  rbind(PeakForcePC, avgPeakForcePC)
-    JumpFreq2 <-  rbind(JumpFreq, avgJumpFreq)
-    
-    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, EccStiffness2, PeakForcePC2, JumpFreq2)
-    
-    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
-    OutputdfRightSS <-  as.data.frame(Output)
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    # 
-    
-    
-    ({OutputdfRightSS})
-    # 
-    # dir = choose.dir(default = "", caption = "Select folder")
-    # file <- paste(dir, "/", Trial, ".xlsx", sep="")
-    # 
-    # write.xlsx(Output, file=file, sheetName=Trial, append=FALSE) 
-    #     
   })
-  outputOptions(output, "resultstableRightSS", suspendWhenHidden = FALSE)
+  outputOptions(output, "resultstableRight5", suspendWhenHidden = FALSE)
+  
+  output$resultstableRight6 <- renderTable({
+    input$goButton
+    
+    data1 <- isolate(
+      read.csv(input$Right6$datapath, stringsAsFactors = F))
+    
+    #remove NAs
+    newdata <-  na.omit(data1)
+    
+    #Extract Fz column number 4 and convert character to numeric
+    Fz2 <-  as.numeric(newdata[,3])
+    
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    #manual BW and mass
+    #BW = 85*9.8
+    #Mass = 85
+    
+    #Calculate BW from Mass that is entered on the Shiny - should give an error if no Mass is entered
+    BW = (input$Mass)*9.8
+    
+    
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
+    
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
+    
+    # Identify the first contact instance after flight
+    Contact <- Flight + which(
+      sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
+        segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+        all(segment > 10)  # All frames in the window must exceed threshold
+      })
+    )[1]
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
+    
+    # Initialize the first flight
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
+    
+    # Loop to detect and list all contact and flight instances
+    for (r in 1:12) {
+      t <- r + 1
+      
+      # Detect contact: All frames in the window must stay above 10N
+      Contact[r] <- Flight[r] + which(
+        sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
+          segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
+          all(segment > 10)  # Check if all frames in the window are above 10N
+        })
+      )[1]
+      
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
+    }
+    
+    #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
+    output$projectplotRight6 <- renderPlotly({
+      df = Fz2$Fz2
+      ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
+        geom_line() +
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
+    })
+    
+    
+    # dlg_message(c("Is the hop devision correct?", "Continue?"), "okcancel")$res
+    
+    #Split the full data into FullHops which is from contact to contact, using the final r value from the 1:20 loop above, which should be the last contact instance - subtract 1 to give the number of complete hops
+    FullHop1 <- Fz2$Fz2[Contact[1]:Contact[2]]
+    FullHops <- list()
+    for(q in 1:(r-1)){
+      t <- q+1
+      FullHops[[q]] <- Fz2$Fz2[Contact[q]:Contact[t]]
+    }
+    
+    #Split the data into Hops from flight to flight
+    Hops <- list()
+    for(q in 1:(r-1)){
+      t <- q+1
+      Hops[[q]] <- Fz2$Fz2[Flight[q]:Flight[t]]
+    }
+    
+    #Define blank variables for the loops below
+    PeakHop = c()
+    PeakHopBW = c()
+    ContactTimeHop = c()
+    FlightTimeHop = c()
+    MinHopDisp = c()
+    EccHopDisp = c()
+    EccStiffHop = c()
+    JumpFreqHop = c()
+    
+    
+    # the final q value after the loop is now the number of full hops, so it can be reused below
+    
+    for (w in 1:q){
+      
+      #Hop1
+      
+      #Calculate Acceleration using F=m*a
+      
+      Hop <-  Hops[[w]]
+      #HopAcc <- (Hop-BW)/input$Mass
+      HopAcc <- (Hop-BW)/input$Mass
+      
+      
+      #Create a rolling average of Acc, 2 frame window (why?)
+      HopAccavg = rollapply(HopAcc, 2, mean)
+      #insert 0 at the first row
+      HopAccavg2 = insert(HopAccavg, 1, 0)
+      
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
+      
+      #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
+      HopVelInit = 1.3
+      
+      #Relabel HopAccarea as HopVela  add HopVelInit
+      HopVela = HopAccarea
+      HopVela[1] = HopVelInit+HopAccarea[1]
+      
+      #cumulative sum of the acceleration will give the velocity at each point
+      HopVel = cumsum(HopVela)
+      
+      #Create a rolling average of Vel, 2 frame window (why?)
+      HopVelavg = rollapply(HopVel, 2, mean)
+      #insert 0 at the first row
+      HopVelavg2 = insert(HopVelavg, 1, 0)
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
+      
+      #Caluclate Displacement as the cumsum of Velocity Area
+      HopDisp = cumsum(HopVelarea)
+      
+      #Define length of the Displacement data
+      l = length(HopDisp)
+      
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
+      #Conversely, do the opposite if Final displacement is <0.0001
+      if (HopDisp[l]>0){
+        while (HopDisp[l] > 0.0001) {
+          HopAccavg = rollapply(HopAcc, 2, mean)
+          HopAccavg2 = insert(HopAccavg, 1, 0)
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
+          HopVela = HopAccarea
+          HopVela[1] = HopVelInit+HopAccarea[1]
+          HopVel = cumsum(HopVela)
+          HopVelavg = rollapply(HopVel, 2, mean)
+          HopVelavg2 = insert(HopVelavg, 1, 0)
+          HopVelarea = HopVelavg2*0.001
+          HopDisp = cumsum(HopVelarea)}
+      }else (HopDisp[l]<0) 
+      {
+        while (HopDisp[l] < 0.0001) {
+          HopAccavg = rollapply(HopAcc, 2, mean)
+          HopAccavg2 = insert(HopAccavg, 1, 0)
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
+          HopVela = HopAccarea
+          HopVela[1] = HopVelInit+HopAccarea[1]
+          HopVel = cumsum(HopVela)
+          HopVelavg = rollapply(HopVel, 2, mean)
+          HopVelavg2 = insert(HopVelavg, 1, 0)
+          HopVelarea = HopVelavg2*0.001
+          HopDisp = cumsum(HopVelarea)
+        }
+      }
+      
+      
+      #Calculate output variables
+      
+      ContactFrame <- 5 + which(
+        sapply(5:(length(Hop) - min_frames_rising), function(i) {
+          segment <- Hop[i:(i + min_frames_rising - 1)]
+          all(segment > 10)
+        })
+      )[1]
+      
+      
+      PeakHop[w] = max(Hop)
+      PeakHopBW[w] = max(Hop)/BW
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
+      MinHopDisp[w] = min(HopDisp)
+      EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
+      EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
+      
+    }
+    
+    #Convert Output variables to data.frame and round each value to 2 dp
+    PeakHop_df = data.frame(PeakHop) %>% mutate_if(is.numeric, round, digits=2)
+    PeakHopBW_df = data.frame(PeakHopBW) %>% mutate_if(is.numeric, round, digits=2)
+    ContactTimeHop_df = data.frame(ContactTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    FlightTimeHop_df = data.frame(FlightTimeHop) %>% mutate_if(is.numeric, round, digits=2)
+    MinHopDisp_df = data.frame(MinHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccHopDisp_df = data.frame(EccHopDisp) %>% mutate_if(is.numeric, round, digits=2)
+    EccStiffHop_df = data.frame(EccStiffHop) %>% mutate_if(is.numeric, round, digits=2)
+    JumpFreqHop_df = data.frame(JumpFreqHop) %>% mutate_if(is.numeric, round, digits=2)
+    
+    
+    #Calculate average of middle 5 hops as the "most reliable"
+    avgEccCOMDisp = round(mean(EccHopDisp[5:9]),digits=2)
+    avgContactTime = round(mean(ContactTimeHop[5:9]),digits=2)
+    avgFlightTime = round(mean(FlightTimeHop[5:9]),digits=2)
+    avgEccStiffness = round(mean(EccStiffHop[5:9]),digits=2)
+    avgPeakForceBW = round(mean(PeakHopBW[5:9]),digits=2)
+    avgJumpFreq = round(mean(JumpFreqHop[5:9]),digits=2)
+    
+    #create a variable listing the hopnumbers as Hop1, Hop2 etc, looping to q (number of hops from above)
+    hopnumber = c()
+    for(n in 1:q){
+      hopnumber[n] <- paste0("Hop", n, sep = "")
+    }
+    #add to that a col header "Average"
+    hopnumber[q+1] = "Average"
+    #convert to data.frame for rbind below
+    hopnumber = data.frame(hopnumber)
+    
+    #Create reactive variable that stays alive for combined final summary table
+    values$Right6Averages <-  cbind(avgEccCOMDisp, avgContactTime, avgFlightTime, avgEccStiffness, avgPeakForceBW, avgJumpFreq)
+    
+    #combine the data for each hop as rows and the average as the final row
+    EccCOMDisp2 <-  rbind(EccHopDisp_df, avgEccCOMDisp)
+    ContactTime2 <-  rbind(ContactTimeHop_df, avgContactTime)
+    FlightTime2 <-  rbind(FlightTimeHop_df, avgFlightTime)
+    EccStiffness2 <-  rbind(EccStiffHop_df, avgEccStiffness)
+    PeakForceBW2 <-  rbind(PeakHopBW_df, avgPeakForceBW)
+    JumpFreq2 <-  rbind(JumpFreqHop_df, avgJumpFreq)
+    
+    #Create output data frame withe the hopnumber variable as the first column and data from above as columns
+    Output <- cbind(hopnumber, EccCOMDisp2, ContactTime2, FlightTime2, EccStiffness2, PeakForceBW2, JumpFreq2)
+    
+    #rename column names of output data frame (default is the variable name)
+    colnames(Output)  <-c("Hopnumber","EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
+    
+    #define output file for Shiny
+    OutputdfRight6 <-  as.data.frame(Output)
+    
+    ({OutputdfRight6})
+    
+    
+  })
+  outputOptions(output, "resultstableRight6", suspendWhenHidden = FALSE)
   
   output$resultstableSummary <- renderTable({
-    rownames <- c("Left 1.7Hz", "Left 2.0Hz", "Left 2.3Hz", "Left 2.6Hz", "Left SSHz", "Right 1.7Hz", "Right 2.0Hz", "Right 2.3Hz", "Right 2.6Hz", "Right SSHz")
-    OutputAverages <- rbind(values$Left1.7Averages, values$Left2.0Averages, values$Left2.3Averages, values$Left2.6Averages, values$LeftSSAverages, values$Right1.7Averages, values$Right2.0Averages, values$Right2.3Averages, values$Right2.6Averages, values$RightSSAverages)
+    rownames <- c("Left1", "Left2", "Left3", "Left4", "Left5", "Left6", "Right1", "Right2", "Right3", "Right4", "Right5", "Right6")
+    OutputAverages <- rbind(values$Left1Averages, values$Left2Averages, values$Left3Averages, values$Left4Averages, values$Left5Averages, values$Left6Averages, values$Right1Averages, values$Right2Averages, values$Right3Averages, values$Right4Averages, values$Right5Averages, values$Right6Averages)
     OutputSummarytable <-  cbind(rownames, OutputAverages)
-    colnames(OutputSummarytable) <-  c("Trial", "EccCOMDisp","ContactTime", "EccStiffness", "PeakForcePC", "JumpFreq")
+    colnames(OutputSummarytable) <-  c("Trial", "EccCOMDisp","ContactTime", "FlightTime", "EccStiffness", "PeakForceBW", "JumpFreq")
     OutputdfAverages <- as.data.frame(OutputSummarytable)
     ({OutputdfAverages})
     
   })
   outputOptions(output, "resultstableSummary", suspendWhenHidden = TRUE)
+  
 }  

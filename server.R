@@ -1,7 +1,7 @@
 #Currently server500Hz
 
 
-# changed freq to 0.002 from 0.002
+# changed freq to 0.001 from 0.001
 # changed flight threshold to 10N
 
 # Define server logic to read selected file ----
@@ -23,8 +23,20 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
+    
+    
+    ## Filter Design: 4th-order low-pass Butterworth filter with 20 Hz cutoff frequency
+    ## Assuming your sampling rate is 500 Hz
+    #sampling_rate <- 500
+    #cutoff_frequency <- 15
+    #nyquist_frequency <- sampling_rate / 2
+    #butter_filter <- butter(4, cutoff_frequency / nyquist_frequency, type = "low")
+    ## 
+    ## # Apply the filter
+    #Fz2$Fz2 <- filtfilt(butter_filter, Fz2$Fz2)
+    
     
     #manual BW and mass
     #BW = 85*9.8
@@ -34,39 +46,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -74,62 +89,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") +
-        
-        geom_vline(xintercept=Flight[13], col="green") +
-        geom_vline(xintercept=Contact[13], col="red") #+
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -179,8 +140,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -196,8 +157,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -205,34 +166,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -243,18 +204,20 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -324,8 +287,10 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+
+    
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -335,39 +300,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -375,62 +343,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -480,8 +394,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -497,8 +411,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -506,34 +420,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -544,18 +458,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -626,8 +541,8 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -637,39 +552,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -677,62 +595,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -782,8 +646,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -799,8 +663,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -808,34 +672,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -846,18 +710,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -927,9 +792,9 @@ server <- function(input, output) {
     
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
-    
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+  
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -939,39 +804,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -979,62 +847,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -1084,8 +898,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -1101,8 +915,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -1110,34 +924,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -1148,18 +962,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -1230,8 +1045,8 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -1241,39 +1056,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -1281,62 +1099,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -1386,8 +1150,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -1403,8 +1167,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -1412,34 +1176,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -1450,18 +1214,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -1532,8 +1297,8 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -1543,39 +1308,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -1583,62 +1351,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -1688,8 +1402,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -1705,8 +1419,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -1714,34 +1428,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -1752,18 +1466,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -1834,8 +1549,8 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -1845,39 +1560,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -1885,62 +1603,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -1990,8 +1654,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -2007,8 +1671,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -2016,34 +1680,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -2054,18 +1718,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -2136,8 +1801,8 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -2147,39 +1812,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -2187,62 +1855,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -2292,8 +1906,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -2309,8 +1923,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -2318,34 +1932,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -2356,18 +1970,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -2438,8 +2053,8 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -2449,39 +2064,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -2489,62 +2107,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -2594,8 +2158,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -2611,8 +2175,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -2620,34 +2184,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -2658,18 +2222,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -2740,8 +2305,8 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -2751,40 +2316,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 10  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
-    #zerooffset = mean(Fz2$Fz2[Flight:Contact])
-    #Fz2$Fz2 = Fz2$Fz2 - zerooffset
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -2792,62 +2359,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -2897,8 +2410,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -2914,8 +2427,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -2923,34 +2436,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -2961,18 +2474,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -3043,8 +2557,8 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -3054,39 +2568,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -3094,62 +2611,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -3199,8 +2662,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -3216,8 +2679,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -3225,34 +2688,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -3263,18 +2726,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
@@ -3345,8 +2809,8 @@ server <- function(input, output) {
     #Extract Fz column number 4 and convert character to numeric
     Fz2 <-  as.numeric(newdata[,3])
     
-    #make that its own data frame
-    Fz2 <-  as.data.frame(Fz2)
+    # Create a data frame for the interpolated data
+    Fz2 <- as.data.frame(Fz2)
     
     #manual BW and mass
     #BW = 85*9.8
@@ -3356,39 +2820,42 @@ server <- function(input, output) {
     BW = (input$Mass)*9.8
     
     
-    # Find the first flight instance
-    Flight <- which(Fz2$Fz2 < 20)[1]
+    # Detect initial flight (force below 10N)
+    Flight <- which(Fz2$Fz2 < 5)[1]
     
-    # Define the first contact instance after the first flight
-    # Ensure the force surpasses 20 N, rises steadily, and stays above the threshold for several frames
-    min_frames_rising <- 5  # Number of frames that force must rise consecutively to confirm contact
+    # Define window size to confirm true contact
+    min_frames_rising <- 50  # Ensures sustained contact signal for 20 frames
     
+    # Identify the first contact instance after flight
     Contact <- Flight + which(
       sapply(Flight + 1:(length(Fz2$Fz2) - Flight), function(i) {
         segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-        all(segment > 20) && all(diff(segment) > 0)
+        all(segment > 10)  # All frames in the window must exceed threshold
       })
     )[1]
     
-    # Loop to detect and list all contact and flight instances
-    Contact <- numeric(12)  # Preallocate for efficiency
-    Flight <- numeric(12)   # Preallocate for efficiency
+    # Preallocate for efficiency
+    Contact <- numeric(12)
+    Flight <- numeric(12)
     
     # Initialize the first flight
-    Flight[1] <- which(Fz2$Fz2 < 20)[1]
+    Flight[1] <- which(Fz2$Fz2 < 5)[1]
     
+    # Loop to detect and list all contact and flight instances
     for (r in 1:12) {
       t <- r + 1
-      # Detect contact: Force > 20 N, rising for min_frames_rising consecutive frames
+      
+      # Detect contact: All frames in the window must stay above 10N
       Contact[r] <- Flight[r] + which(
         sapply(Flight[r] + 1:(length(Fz2$Fz2) - Flight[r]), function(i) {
+          # Print the iteration and the segment being evaluated
           segment <- Fz2$Fz2[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)  # Check if all frames in the window are above 10N
         })
       )[1]
       
-      # Detect flight: Force drops below 5 N
-      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 20)[1]
+      # Detect flight: Force drops below 10 N
+      Flight[t] <- Contact[r] + which(Fz2$Fz2[Contact[r] + 1:length(Fz2$Fz2)] < 5)[1]
     }
     
     #this will create the overall plot, labeling each flight and contact instance - done 20 as above, shouldn't cause an error
@@ -3396,62 +2863,8 @@ server <- function(input, output) {
       df = Fz2$Fz2
       ggplot(Fz2, aes(x=1:length(Fz2), y=Fz2)) +
         geom_line() +
-        geom_vline(xintercept=Flight[1], col="green") +
-        geom_vline(xintercept=Contact[1], col="red") +
-        
-        geom_vline(xintercept=Flight[2], col="green") +
-        geom_vline(xintercept=Contact[2], col="red") +
-        
-        geom_vline(xintercept=Flight[3], col="green") +
-        geom_vline(xintercept=Contact[3], col="red") +
-        
-        geom_vline(xintercept=Flight[4], col="green") +
-        geom_vline(xintercept=Contact[4], col="red") +
-        
-        geom_vline(xintercept=Flight[5], col="green") +
-        geom_vline(xintercept=Contact[5], col="red") +
-        
-        geom_vline(xintercept=Flight[6], col="green") +
-        geom_vline(xintercept=Contact[6], col="red") +
-        
-        geom_vline(xintercept=Flight[7], col="green") +
-        geom_vline(xintercept=Contact[7], col="red") +
-        
-        geom_vline(xintercept=Flight[8], col="green") +
-        geom_vline(xintercept=Contact[8], col="red") +
-        
-        geom_vline(xintercept=Flight[9], col="green") +
-        geom_vline(xintercept=Contact[9], col="red") +
-        
-        geom_vline(xintercept=Flight[10], col="green") +
-        geom_vline(xintercept=Contact[10], col="red") +
-        
-        geom_vline(xintercept=Flight[11], col="green") +
-        geom_vline(xintercept=Contact[11], col="red") +
-        
-        geom_vline(xintercept=Flight[12], col="green") +
-        geom_vline(xintercept=Contact[12], col="red") #+
-      
-      #geom_vline(xintercept=Flight[13], col="green") +
-      #geom_vline(xintercept=Contact[13], col="red") +
-      
-      #geom_vline(xintercept=Flight[14], col="green") +
-      #geom_vline(xintercept=Contact[14], col="red") +
-      
-      #geom_vline(xintercept=Flight[15], col="green") +
-      #geom_vline(xintercept=Contact[15], col="red") +
-      
-      #geom_vline(xintercept=Flight[16], col="green") +
-      #geom_vline(xintercept=Contact[16], col="red")
-      
-      #geom_vline(xintercept=Flight[17], col="green") +
-      #geom_vline(xintercept=Contact[17], col="red")
-      #geom_vline(xintercept=Flight[18], col="green") +
-      # geom_vline(xintercept=Contact[18], col="red")
-      #geom_vline(xintercept=Flight[19], col="green") +
-      # geom_vline(xintercept=Contact[19], col="red")
-      #geom_vline(xintercept=Flight[20], col="green") +
-      # geom_vline(xintercept=Contact[20], col="red")
+        geom_vline(xintercept=Flight, col="green") +
+        geom_vline(xintercept=Contact, col="red")
     })
     
     
@@ -3501,8 +2914,8 @@ server <- function(input, output) {
       #insert 0 at the first row
       HopAccavg2 = insert(HopAccavg, 1, 0)
       
-      #Calculate Acceleration Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopAccarea = HopAccavg2*0.002
+      #Calculate Acceleration Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopAccarea = HopAccavg2*0.001
       
       #HopVelInit is a random starting velocity to apply the acceleration to, and will be adjusted later 
       HopVelInit = 1.3
@@ -3518,8 +2931,8 @@ server <- function(input, output) {
       HopVelavg = rollapply(HopVel, 2, mean)
       #insert 0 at the first row
       HopVelavg2 = insert(HopVelavg, 1, 0)
-      #Calculate Velocity Area under the curve, using the time variable (500hz = 0.002 seconds)
-      HopVelarea = HopVelavg2*0.002
+      #Calculate Velocity Area under the curve, using the time variable (1000Hz = 0.001 seconds)
+      HopVelarea = HopVelavg2*0.001
       
       #Caluclate Displacement as the cumsum of Velocity Area
       HopDisp = cumsum(HopVelarea)
@@ -3527,34 +2940,34 @@ server <- function(input, output) {
       #Define length of the Displacement data
       l = length(HopDisp)
       
-      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.002, and continue until Final displacement is within 0.0001 of zero.
+      #Adjust Init Velocity to get Final Displacement close to zero e.g. if Final displacement (l) is >0.0001, repeat the calculations above with HopVelInit -0.001, and continue until Final displacement is within 0.0001 of zero.
       #Conversely, do the opposite if Final displacement is <0.0001
       if (HopDisp[l]>0){
         while (HopDisp[l] > 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit - 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit - 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)}
       }else (HopDisp[l]<0) 
       {
         while (HopDisp[l] < 0.0001) {
           HopAccavg = rollapply(HopAcc, 2, mean)
           HopAccavg2 = insert(HopAccavg, 1, 0)
-          HopAccarea = HopAccavg2*0.002
-          HopVelInit = HopVelInit + 0.002
+          HopAccarea = HopAccavg2*0.001
+          HopVelInit = HopVelInit + 0.001
           HopVela = HopAccarea
           HopVela[1] = HopVelInit+HopAccarea[1]
           HopVel = cumsum(HopVela)
           HopVelavg = rollapply(HopVel, 2, mean)
           HopVelavg2 = insert(HopVelavg, 1, 0)
-          HopVelarea = HopVelavg2*0.002
+          HopVelarea = HopVelavg2*0.001
           HopDisp = cumsum(HopVelarea)
         }
       }
@@ -3565,18 +2978,19 @@ server <- function(input, output) {
       ContactFrame <- 5 + which(
         sapply(5:(length(Hop) - min_frames_rising), function(i) {
           segment <- Hop[i:(i + min_frames_rising - 1)]
-          all(segment > 20) && all(diff(segment) > 0)
+          all(segment > 10)
         })
       )[1]
       
+      
       PeakHop[w] = max(Hop)
       PeakHopBW[w] = max(Hop)/BW
-      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.002
-      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.002
+      ContactTimeHop[w] = (length(HopDisp) - ContactFrame)*0.001
+      FlightTimeHop[w] = (length(HopDisp) - (length(HopDisp) - ContactFrame))*0.001
       MinHopDisp[w] = min(HopDisp)
       EccHopDisp[w] = (HopDisp[ContactFrame] - min(HopDisp))
       EccStiffHop[w] = ((max(Hop) - BW)/(HopDisp[ContactFrame] - min(HopDisp)))/input$Mass
-      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.002)
+      JumpFreqHop[w] = 1/(length(FullHops[[w]])*0.001)
       
     }
     
